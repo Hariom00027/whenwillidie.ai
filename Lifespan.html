@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>whenwillidie.ai — Lifespan Estimator</title>
+  <meta name="description" content="Interactive quiz that estimates your remaining lifespan and shows a live countdown. Not medical advice." />
+  <style>
+    :root {
+      --bg: #0f1220;
+      --card: #161a2f;
+      --text: #e6e9ef;
+      --muted: #aab2c5;
+      --accent: #7c5cff;
+      --accent-2: #17c3b2;
+      --danger: #ff6b6b;
+      --ok: #67e8a5;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu,
+        Cantarell, Noto Sans, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      background: radial-gradient(1200px 600px at 80% -10%, rgba(124,92,255,.25), transparent),
+                  radial-gradient(1000px 600px at -10% 120%, rgba(23,195,178,.15), transparent),
+                  var(--bg);
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+    a { color: var(--accent-2); text-decoration: none; }
+
+    .container { max-width: 980px; margin: 0 auto; padding: 24px; }
+    header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .brand { font-weight: 800; letter-spacing: 0.2px; }
+    .brand span { color: var(--accent); }
+    .card {
+      background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.35);
+    }
+
+    /* Pages */
+    .page { display: none; animation: fade .25s ease; }
+    .page.active { display: block; }
+    @keyframes fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+    .hero { text-align: center; padding: 56px 16px; }
+    .hero h1 { font-size: 40px; margin: 0 0 12px; }
+    .hero p { margin: 0 0 28px; color: var(--muted); }
+
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      gap: 10px; padding: 14px 18px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.12);
+      background: linear-gradient(180deg, rgba(124,92,255,.2), rgba(124,92,255,.15));
+      color: #fff; cursor: pointer; font-weight: 700;
+      transition: transform .05s ease, filter .2s ease, box-shadow .2s ease, background .2s ease;
+      box-shadow: 0 6px 20px rgba(124,92,255,.25);
+      user-select: none;
+    }
+    .btn:hover { filter: brightness(1.06); }
+    .btn:active { transform: translateY(1px); }
+    .btn.secondary { background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03)); box-shadow: none; }
+    .btn[disabled] { opacity: 0.5; cursor: not-allowed; }
+
+    .quiz {
+      display: grid; gap: 18px;
+    }
+    .q-title { font-size: 22px; margin: 0 0 4px; }
+    .q-help { color: var(--muted); font-size: 14px; }
+    .options { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-top: 12px; }
+    .opt { padding: 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); cursor: pointer; background: rgba(255,255,255,0.04); }
+    .opt:hover { background: rgba(255,255,255,0.06); }
+    .opt.selected { outline: 2px solid var(--accent); background: rgba(124,92,255,.15); }
+    .opt input { margin-right: 8px; }
+
+    .field { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .input {
+      display: flex; align-items: center; gap: 8px; padding: 12px 12px; border-radius: 12px;
+      background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1);
+    }
+    .input input { width: 100%; background: transparent; border: none; outline: none; color: var(--text); font-size: 16px; }
+    .unit { color: var(--muted); font-size: 14px; }
+
+    .progress { height: 8px; background: rgba(255,255,255,0.08); border-radius: 999px; overflow: hidden; }
+    .bar { height: 100%; width: 0%; background: linear-gradient(90deg, var(--accent), var(--accent-2)); transition: width .3s ease; }
+
+    .nav { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 6px; }
+
+    .result h2 { margin: 0 0 8px; font-size: 28px; }
+    .result p { margin: 0 0 16px; color: var(--muted); }
+    .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-top: 16px; }
+    .kpi { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 14px; text-align: center; }
+    .kpi .num { font-size: 28px; font-weight: 800; }
+    .kpi .lbl { color: var(--muted); font-size: 13px; }
+
+    .small { font-size: 12px; color: var(--muted); }
+    /* === Haunting theme overrides and effects === */
+    :root {
+      --bg: #0a0c18;
+      --card: #0f1426;
+      --text: #ecf0ff;
+      --muted: #99a0b7;
+      --accent: #a855f7;   /* eerie violet */
+      --accent-2: #22d3ee; /* ghostly cyan */
+      --danger: #ff4d4d;
+      --ok: #67e8a5;
+      --glow: rgba(168,85,247,.55);
+      --glow-cyan: rgba(34,211,238,.45);
+    }
+
+    body {
+      background:
+        radial-gradient(1200px 600px at 80% -10%, rgba(168,85,247,.12), transparent 60%),
+        radial-gradient(1000px 600px at -10% 120%, rgba(34,211,238,.10), transparent 60%),
+        conic-gradient(from 180deg at 50% 50%, #0b0f1f 0%, #0a0c18 35%, #0b0f1f 70%, #0a0c18 100%);
+      animation: bgPulse 22s ease-in-out infinite;
+    }
+
+    .container { position: relative; z-index: 1; }
+
+    /* Ambient background layers */
+    .bg.fx { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+    .bg.fx .vignette { position: absolute; inset: -10%; background: radial-gradient(120% 160% at 50% 50%, transparent 58%, rgba(0,0,0,.6) 100%); }
+    .bg.fx .orbs {
+      position: absolute; inset: -20% -10% -10% -10%; filter: blur(32px) saturate(120%);
+      background:
+        radial-gradient(180px 180px at 18% 30%, rgba(168,85,247,.20), transparent 60%),
+        radial-gradient(240px 240px at 82% 72%, rgba(34,211,238,.18), transparent 60%),
+        radial-gradient(200px 200px at 50% 12%, rgba(255,77,77,.10), transparent 60%),
+        radial-gradient(140px 140px at 12% 82%, rgba(124,92,255,.12), transparent 60%);
+      animation: drift 28s linear infinite alternate;
+      mix-blend-mode: plus-lighter;
+    }
+
+    /* Typography and brand effects */
+    .brand { letter-spacing: 0.8px; text-shadow: 0 0 8px var(--glow), 0 0 2px rgba(255,255,255,.2); animation: flicker 8s infinite; }
+    .brand span { text-shadow: 0 0 10px var(--glow), 0 0 22px var(--glow); }
+    .hero h1 {
+      font-size: clamp(36px, 5vw, 48px);
+      text-shadow:
+        0 0 18px rgba(168,85,247,.35),
+        0 0 36px rgba(34,211,238,.25),
+        0 2px 0 rgba(0,0,0,.35);
+      animation: titleGlow 6s ease-in-out infinite;
+    }
+    .hero p { color: #a3abc2; }
+
+    /* Cards */
+    .card {
+      border: 1px solid rgba(168,85,247,.18);
+      box-shadow: 0 14px 50px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,0.02), 0 0 40px rgba(168,85,247,.10);
+      background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.015));
+      transition: transform .25s ease, box-shadow .3s ease, border-color .3s ease;
+    }
+    .card:hover { transform: translateY(-2px); box-shadow: 0 18px 60px rgba(0,0,0,.55), 0 0 60px rgba(168,85,247,.18); border-color: rgba(34,211,238,.25); }
+
+    /* Buttons */
+    .btn {
+      background: linear-gradient(180deg, rgba(168,85,247,.24), rgba(124,92,255,.18));
+      border: 1px solid rgba(168,85,247,.35);
+      box-shadow: 0 10px 26px var(--glow), 0 0 0 1px rgba(255,255,255,.06) inset;
+      text-shadow: 0 1px 0 rgba(0,0,0,.4);
+    }
+    .btn:hover { filter: brightness(1.08); box-shadow: 0 12px 34px var(--glow), 0 0 22px var(--glow-cyan) inset; }
+    .btn.secondary {
+      background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02));
+      border: 1px solid rgba(255,255,255,.12);
+      box-shadow: none;
+    }
+
+    /* Quiz options */
+    .opt {
+      background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.03));
+      border: 1px solid rgba(255,255,255,.12);
+      transition: transform .12s ease, background .2s ease, box-shadow .2s ease, border-color .2s ease;
+    }
+    .opt:hover { transform: translateY(-1px); background: rgba(255,255,255,.07); box-shadow: 0 8px 26px rgba(168,85,247,.14); }
+    .opt.selected { outline: 2px solid var(--accent); background: rgba(124,92,255,.18); border-color: rgba(168,85,247,.35); box-shadow: 0 0 0 2px rgba(255,255,255,.06) inset, 0 10px 28px rgba(168,85,247,.18); }
+
+    /* Inputs */
+    .input { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.14); }
+    .input input::placeholder { color: #7f879c; }
+
+    /* Progress */
+    .progress { background: rgba(255,255,255,0.10); }
+    .bar {
+      background: linear-gradient(90deg, var(--accent), var(--accent-2), var(--accent));
+      background-size: 200% 100%;
+      animation: progressFlow 3.5s linear infinite;
+    }
+
+    /* KPIs */
+    .kpi { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12); }
+    .kpi .num { text-shadow: 0 0 16px rgba(168,85,247,.25), 0 0 28px rgba(34,211,238,.15); }
+
+    /* Subtle page reveal */
+    .page { animation: haunt .35s ease; }
+
+    /* Keyframes */
+    @keyframes drift { from { transform: translate3d(-2%, -2%, 0) rotate(0deg); } to { transform: translate3d(2%, 1%, 0) rotate(3deg); } }
+    @keyframes flicker {
+      0%, 100% { opacity: 1; }
+      5% { opacity: .85; }
+      6% { opacity: 1; }
+      7% { opacity: .8; }
+      8% { opacity: 1; }
+      50% { opacity: .95; }
+    }
+    @keyframes titleGlow { 0%, 100% { text-shadow: 0 0 18px rgba(168,85,247,.35), 0 0 36px rgba(34,211,238,.25), 0 2px 0 rgba(0,0,0,.35); } 50% { text-shadow: 0 0 28px rgba(168,85,247,.55), 0 0 52px rgba(34,211,238,.35), 0 2px 0 rgba(0,0,0,.35); } }
+    @keyframes progressFlow { 0% { background-position: 0% 0; } 100% { background-position: 200% 0; } }
+    @keyframes haunt { from { opacity: 0; transform: translateY(6px) scale(.995); } to { opacity: 1; transform: none; } }
+    @keyframes bgPulse { 0%, 100% { filter: saturate(100%) brightness(100%); } 50% { filter: saturate(120%) brightness(108%); } }
+    /* Ambient canvas + grain */
+    .bg.fx #fxCanvas, .bg.fx .grain { position: absolute; inset: 0; width: 100%; height: 100%; }
+    .bg.fx #fxCanvas { mix-blend-mode: screen; opacity: .35; filter: blur(.4px) saturate(110%); }
+    .bg.fx .grain { background:
+        repeating-linear-gradient(0deg, rgba(255,255,255,.02) 0 2px, transparent 2px 4px),
+        repeating-linear-gradient(90deg, rgba(0,0,0,.02) 0 3px, transparent 3px 6px);
+      opacity: .06; mix-blend-mode: overlay; animation: staticFlicker 6s steps(6,end) infinite; }
+
+    /* Header adjustments */
+    header { flex-wrap: wrap; }
+    .brand::before { content: '☠'; margin-right: 8px; color: var(--accent-2); filter: drop-shadow(0 0 6px var(--glow-cyan)); }
+
+    /* Whispers overlay */
+    .whispers { position: fixed; inset: 0; pointer-events: none; z-index: 2; overflow: hidden; }
+    .whispers .w {
+      position: absolute; color: rgba(226, 232, 255, .65); font-style: italic; font-weight: 500;
+      text-shadow: 0 0 12px rgba(168,85,247,.35), 0 0 28px rgba(34,211,238,.25);
+      animation: whisper 6s ease forwards;
+      letter-spacing: .4px;
+    }
+
+    /* Tiny button for ambience */
+    .btn.tiny { padding: 6px 10px; font-size: 12px; line-height: 1; border-radius: 999px; }
+
+    /* Glitch effect */
+    .brand.glitch { animation: glitchShift .25s steps(2,end); }
+
+    /* Keyframes additions */
+    @keyframes staticFlicker { 0%, 100% { opacity: .05; } 50% { opacity: .09; } }
+    @keyframes whisper { 0% { opacity: 0; transform: translateY(6px) scale(.98); } 10% { opacity: .85; } 80% { opacity: .75; } 100% { opacity: 0; transform: translateY(-6px) scale(1.02); } }
+    @keyframes glitchShift {
+      0% { text-shadow: 2px 0 0 rgba(168,85,247,.6), -2px 0 0 rgba(34,211,238,.6); transform: translateX(0); }
+      20% { text-shadow: -2px 0 0 rgba(168,85,247,.6), 2px 0 0 rgba(34,211,238,.6); transform: translateX(-1px); }
+      40% { transform: translateX(1px); }
+      60% { transform: translateX(-1px); }
+      80% { transform: translateX(1px); }
+      100% { transform: translateX(0); }
+    }
+
+    /* CTA pulse */
+    .pulse { animation: pulse 2.8s ease-in-out infinite; }
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 10px 26px var(--glow); }
+      50% { box-shadow: 0 14px 42px var(--glow), 0 0 24px var(--glow-cyan) inset; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Ambient background visuals -->
+  <div class="bg fx" aria-hidden="true">
+    <canvas id="fxCanvas"></canvas>
+    <div class="orbs"></div>
+    <div class="grain"></div>
+    <div class="vignette"></div>
+  </div>
+
+  <div id="whispers" class="whispers" aria-hidden="true"></div>
+
+  <div class="container">
+    <header>
+      <div class="brand">whenwillidie<span>.ai</span></div>
+      <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+        <button id="ambientToggle" class="btn tiny secondary" title="Toggle ambience">Ambience</button>
+        <div class="small">This is an educational estimator, not medical advice.</div>
+      </div>
+    </header>
+
+    <!-- Home Page -->
+    <section id="page-home" class="page active">
+      <div class="card hero">
+        <h1>How long do you have left?</h1>
+        <p>Answer evidence-informed lifestyle questions and see a live countdown of your estimated remaining time.</p>
+        <div style="display:flex; gap:8px; justify-content:center; flex-wrap:wrap;">
+          <button id="startBtn" class="btn pulse">Know how much time you have to live</button>
+          <button id="ritualBtn" class="btn secondary">Summon whispers</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Quiz Page -->
+    <section id="page-quiz" class="page">
+      <div class="card">
+        <div class="progress" aria-hidden="true"><div id="progressBar" class="bar"></div></div>
+        <div id="quizHost" class="quiz" style="margin-top: 12px;"></div>
+        <div class="nav">
+          <button id="backBtn" class="btn secondary">Back</button>
+          <div style="display:flex; gap:8px;">
+            <button id="skipBtn" class="btn secondary">Skip</button>
+            <button id="nextBtn" class="btn">Next</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Result Page -->
+    <section id="page-result" class="page">
+      <div class="card result">
+        <h2>Your estimated remaining time</h2>
+        <p id="summaryText" class="small"></p>
+        <div class="kpis">
+          <div class="kpi"><div id="yearsOut" class="num">—</div><div class="lbl">Years</div></div>
+          <div class="kpi"><div id="daysOut" class="num">—</div><div class="lbl">Days</div></div>
+          <div class="kpi"><div id="hoursOut" class="num">—</div><div class="lbl">Hours</div></div>
+          <div class="kpi"><div id="minsOut" class="num">—</div><div class="lbl">Minutes</div></div>
+          <div class="kpi"><div id="secsOut" class="num">—</div><div class="lbl">Seconds</div></div>
+        </div>
+        <div style="margin-top: 16px; display:flex; gap:8px; flex-wrap: wrap;">
+          <button id="restartBtn" class="btn secondary">Restart</button>
+          <button id="retakeBtn" class="btn">Retake questionnaire</button>
+        </div>
+        <p class="small" style="margin-top: 12px;">Method: starts from population-average life expectancy and adjusts for lifestyle and health factors. This is an approximation and not a diagnosis.</p>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    // --- Question model ---
+    const questions = [
+      { id: 'age', kind: 'number', label: 'How old are you?', help: 'Enter your current age in years.', min: 0, max: 100 },
+      { id: 'sex', kind: 'single', label: 'What is your sex at birth?', options: [
+        { v: 'male', t: 'Male' }, { v: 'female', t: 'Female' }, { v: 'other', t: 'Prefer not to say' }
+      ]},
+      { id: 'height', kind: 'number', label: 'Your height?', help: 'In centimeters (cm).', min: 120, max: 220, unit: 'cm' },
+      { id: 'weight', kind: 'number', label: 'Your weight?', help: 'In kilograms (kg).', min: 35, max: 250, unit: 'kg' },
+      { id: 'smoke', kind: 'single', label: 'Do you smoke?', options: [
+        { v: 'never', t: 'Never' }, { v: 'former', t: 'Former smoker' }, { v: 'light', t: 'Light (≤5/day)' }, { v: 'heavy', t: 'Heavy (>5/day)' }
+      ]},
+      { id: 'alcohol', kind: 'single', label: 'Alcohol consumption?', options: [
+        { v: 'none', t: 'None' }, { v: 'moderate', t: 'Moderate (≤7 drinks/week)' }, { v: 'heavy', t: 'Heavy (>7 drinks/week)' }
+      ]},
+      { id: 'exercise', kind: 'single', label: 'Exercise frequency?', options: [
+        { v: 'none', t: 'Rarely/Never' }, { v: 'light', t: '1–2 days/week' }, { v: 'regular', t: '3–4 days/week' }, { v: 'high', t: '5+ days/week' }
+      ]},
+      { id: 'sleep', kind: 'single', label: 'Typical sleep duration?', options: [
+        { v: 's<=5', t: '≤5 hours' }, { v: 's6-7', t: '6–7 hours' }, { v: 's7-8', t: '7–8 hours' }, { v: 's8-9', t: '8–9 hours' }, { v: 's>9', t: '>9 hours' }
+      ]},
+      { id: 'diet', kind: 'single', label: 'Diet quality?', options: [
+        { v: 'poor', t: 'Poor (frequent ultra-processed foods, few plants)' },
+        { v: 'ok', t: 'Okay (mixed, some plants)' },
+        { v: 'good', t: 'Good (mostly whole foods, plants)' }
+      ]},
+      { id: 'conditions', kind: 'multi', label: 'Medical conditions (select any that apply)', help: 'This helps adjust risk more accurately.', options: [
+        { v: 'hypertension', t: 'Hypertension' },
+        { v: 'diabetes', t: 'Diabetes' },
+        { v: 'cholesterol', t: 'High cholesterol' },
+        { v: 'heartdisease', t: 'Heart disease' },
+        { v: 'cancer', t: 'Cancer history' },
+        { v: 'respiratory', t: 'Chronic respiratory disease (e.g., COPD)' }
+      ]},
+      { id: 'stress', kind: 'single', label: 'Stress level?', options: [
+        { v: 'low', t: 'Low' }, { v: 'moderate', t: 'Moderate' }, { v: 'high', t: 'High' }
+      ]},
+      { id: 'social', kind: 'single', label: 'Social connections?', options: [
+        { v: 'strong', t: 'Strong (close friends/family you see often)' },
+        { v: 'moderate', t: 'Moderate' },
+        { v: 'weak', t: 'Weak/isolated' }
+      ]},
+      { id: 'safety', kind: 'single', label: 'Everyday safety habits?', help: 'Seatbelt, helmet, and general risk avoidance.', options: [
+        { v: 'good', t: 'Consistently safe' }, { v: 'avg', t: 'Sometimes careless' }, { v: 'poor', t: 'Often take risks' }
+      ]}
+    ];
+
+    const state = {
+      i: 0,
+      a: {}, // answers
+    };
+
+    const el = sel => document.querySelector(sel);
+    const pages = { home: el('#page-home'), quiz: el('#page-quiz'), result: el('#page-result') };
+    const quizHost = el('#quizHost');
+    const progressBar = el('#progressBar');
+
+    // Navigation handlers
+    el('#startBtn').addEventListener('click', () => { showPage('quiz'); renderQuestion(); });
+    el('#backBtn').addEventListener('click', () => { if (state.i > 0) { state.i--; renderQuestion(); } else { showPage('home'); }});
+    el('#skipBtn').addEventListener('click', () => { next(true); });
+    el('#nextBtn').addEventListener('click', () => { next(false); });
+    el('#restartBtn').addEventListener('click', () => { state.i = 0; state.a = {}; showPage('home'); });
+    el('#retakeBtn').addEventListener('click', () => { state.i = 0; showPage('quiz'); renderQuestion(); });
+
+    function showPage(name) {
+      Object.values(pages).forEach(p => p.classList.remove('active'));
+      pages[name].classList.add('active');
+    }
+
+    function renderQuestion() {
+      const q = questions[state.i];
+      if (!q) return;
+      // progress
+      progressBar.style.width = `${Math.round(((state.i) / questions.length) * 100)}%`;
+
+      quizHost.innerHTML = '';
+
+      const title = document.createElement('h3');
+      title.className = 'q-title';
+      title.textContent = q.label;
+
+      const help = document.createElement('div');
+      help.className = 'q-help';
+      help.textContent = q.help || '';
+
+      quizHost.appendChild(title);
+      if (q.help) quizHost.appendChild(help);
+
+      let hasAnswer = false;
+
+      if (q.kind === 'single') {
+        const wrap = document.createElement('div');
+        wrap.className = 'options';
+        (q.options || []).forEach(opt => {
+          const card = document.createElement('label');
+          card.className = 'opt';
+          const input = document.createElement('input');
+          input.type = 'radio'; input.name = q.id; input.value = opt.v;
+          if (state.a[q.id] === opt.v) { input.checked = true; card.classList.add('selected'); hasAnswer = true; }
+          input.addEventListener('change', () => {
+            state.a[q.id] = opt.v;
+            wrap.querySelectorAll('.opt').forEach(x => x.classList.remove('selected'));
+            card.classList.add('selected');
+            toggleNext(true);
+          });
+          const span = document.createElement('span'); span.textContent = opt.t;
+          card.appendChild(input); card.appendChild(span); wrap.appendChild(card);
+        });
+        quizHost.appendChild(wrap);
+        toggleNext(!!state.a[q.id]);
+      }
+
+      if (q.kind === 'multi') {
+        const wrap = document.createElement('div');
+        wrap.className = 'options';
+        const selected = new Set(Array.isArray(state.a[q.id]) ? state.a[q.id] : []);
+        (q.options || []).forEach(opt => {
+          const card = document.createElement('label');
+          card.className = 'opt';
+          const input = document.createElement('input'); input.type = 'checkbox'; input.value = opt.v;
+          if (selected.has(opt.v)) { input.checked = true; card.classList.add('selected'); }
+          input.addEventListener('change', () => {
+            if (input.checked) { selected.add(opt.v); card.classList.add('selected'); }
+            else { selected.delete(opt.v); card.classList.remove('selected'); }
+            state.a[q.id] = Array.from(selected);
+            toggleNext(true); // multi can proceed anytime
+          });
+          const span = document.createElement('span'); span.textContent = opt.t;
+          card.appendChild(input); card.appendChild(span); wrap.appendChild(card);
+        });
+        quizHost.appendChild(wrap);
+        toggleNext(true);
+      }
+
+      if (q.kind === 'number') {
+        const wrap = document.createElement('div');
+        wrap.className = 'field';
+
+        const box = document.createElement('label'); box.className = 'input';
+        const input = document.createElement('input'); input.type = 'number'; input.inputMode = 'decimal';
+        input.placeholder = `${q.label}${q.unit ? ' ('+q.unit+')' : ''}`;
+        if (typeof q.min === 'number') input.min = String(q.min);
+        if (typeof q.max === 'number') input.max = String(q.max);
+        if (state.a[q.id] != null) input.value = state.a[q.id];
+        input.addEventListener('input', () => {
+          const val = Number(input.value);
+          if (!Number.isFinite(val)) { toggleNext(false); return; }
+          state.a[q.id] = val;
+          toggleNext(val >= (q.min ?? -Infinity) && val <= (q.max ?? Infinity));
+        });
+        const unit = document.createElement('span'); unit.className = 'unit'; unit.textContent = q.unit || '';
+        box.appendChild(input); if (q.unit) box.appendChild(unit);
+        wrap.appendChild(box);
+        quizHost.appendChild(wrap);
+        toggleNext(state.a[q.id] != null);
+      }
+
+      // Buttons
+      el('#backBtn').style.visibility = state.i === 0 ? 'hidden' : 'visible';
+      el('#skipBtn').style.visibility = (q.kind === 'number' && q.id === 'age') ? 'hidden' : 'visible';
+    }
+
+    function toggleNext(enabled) {
+      el('#nextBtn').disabled = !enabled;
+    }
+
+    function next(skipped) {
+      if (!skipped) {
+        const q = questions[state.i];
+        // Require age
+        if (q.id === 'age' && (state.a.age == null || state.a.age < 0)) return;
+      }
+      state.i++;
+      if (state.i >= questions.length) {
+        computeAndShowResult();
+      } else {
+        renderQuestion();
+      }
+    }
+
+    // --- Scoring model (simple heuristic; not medical advice) ---
+    function computeLifeExpectancyYears(a) {
+      // Base life expectancy (years)
+      let le = 82; // world-ish average for developed contexts
+      if (a.sex === 'female') le += 3; // female advantage
+
+      // BMI adjustment
+      const hM = a.height ? (a.height / 100) : null;
+      const bmi = (hM && a.weight) ? (a.weight / (hM * hM)) : null;
+      if (bmi) {
+        if (bmi < 18.5) le -= 1.5;
+        else if (bmi < 25) le += 0; // normal
+        else if (bmi < 30) le -= 1;
+        else if (bmi < 35) le -= 3;
+        else le -= 5;
+      }
+
+      // Smoking
+      switch (a.smoke) {
+        case 'former': le -= 2; break;
+        case 'light': le -= 4; break;
+        case 'heavy': le -= 8; break;
+      }
+
+      // Alcohol
+      switch (a.alcohol) {
+        case 'none': le += 0.5; break; // small bonus for abstinence
+        case 'moderate': le += 0; break;
+        case 'heavy': le -= 3; break;
+      }
+
+      // Exercise
+      switch (a.exercise) {
+        case 'none': le -= 3; break;
+        case 'light': le -= 1.5; break;
+        case 'regular': le += 0; break;
+        case 'high': le += 1; break;
+      }
+
+      // Sleep
+      switch (a.sleep) {
+        case 's<=5': le -= 2; break;
+        case 's6-7': le -= 1; break;
+        case 's7-8': le += 1; break;
+        case 's8-9': le += 0; break;
+        case 's>9': le -= 1; break;
+      }
+
+      // Diet
+      switch (a.diet) {
+        case 'poor': le -= 2; break;
+        case 'ok': le -= 1; break;
+        case 'good': le += 1; break;
+      }
+
+      // Conditions (multi)
+      if (Array.isArray(a.conditions)) {
+        const set = new Set(a.conditions);
+        if (set.has('hypertension')) le -= 2;
+        if (set.has('diabetes')) le -= 4;
+        if (set.has('cholesterol')) le -= 1;
+        if (set.has('heartdisease')) le -= 6;
+        if (set.has('cancer')) le -= 3;
+        if (set.has('respiratory')) le -= 2;
+      }
+
+      // Stress
+      switch (a.stress) {
+        case 'moderate': le -= 1; break;
+        case 'high': le -= 2; break;
+      }
+
+      // Social connections
+      switch (a.social) {
+        case 'moderate': le -= 1; break;
+        case 'weak': le -= 2; break;
+      }
+
+      // Safety
+      switch (a.safety) {
+        case 'avg': le -= 0.5; break;
+        case 'poor': le -= 1; break;
+      }
+
+      // Clamp: never below current age, never above 105
+      const age = Number(a.age) || 0;
+      le = Math.max(age, Math.min(105, le));
+
+      return { lifeExpectancy: le, remainingYears: Math.max(0, le - age) };
+    }
+
+    // Result rendering + countdown
+    let timer = null;
+    function computeAndShowResult() {
+      const { lifeExpectancy, remainingYears } = computeLifeExpectancyYears(state.a);
+      const now = Date.now();
+      const target = now + remainingYears * 365.25 * 24 * 3600 * 1000; // approximate
+
+      showPage('result');
+      progressBar.style.width = '100%';
+
+      el('#summaryText').textContent = `Estimated life expectancy: ${lifeExpectancy.toFixed(1)} years. Current age: ${state.a.age ?? '—'} years.`;
+
+      if (timer) clearInterval(timer);
+      const update = () => {
+        const diffMs = Math.max(0, target - Date.now());
+        const totalSec = Math.floor(diffMs / 1000);
+        const years = Math.floor(totalSec / (365.25 * 24 * 3600));
+        const days = Math.floor((totalSec % Math.floor(365.25 * 24 * 3600)) / (24 * 3600));
+        const hours = Math.floor((totalSec % (24 * 3600)) / 3600);
+        const mins = Math.floor((totalSec % 3600) / 60);
+        const secs = totalSec % 60;
+        el('#yearsOut').textContent = years;
+        el('#daysOut').textContent = days;
+        el('#hoursOut').textContent = hours.toString().padStart(2, '0');
+        el('#minsOut').textContent = mins.toString().padStart(2, '0');
+        el('#secsOut').textContent = secs.toString().padStart(2, '0');
+      };
+      update();
+      timer = setInterval(update, 1000);
+    }
+    // === Haunting ambience JS ===
+    const fxCanvas = document.getElementById('fxCanvas');
+    const ctx = fxCanvas.getContext('2d');
+    let fxEnabled = true;
+
+    function sizeCanvas() {
+      fxCanvas.width = window.innerWidth * (window.devicePixelRatio || 1);
+      fxCanvas.height = window.innerHeight * (window.devicePixelRatio || 1);
+      ctx.setTransform(window.devicePixelRatio || 1, 0, 0, window.devicePixelRatio || 1, 0, 0);
+    }
+    sizeCanvas();
+    window.addEventListener('resize', sizeCanvas);
+
+    // Floating motes + faint arcs
+    let t = 0;
+    function loop() {
+      if (!fxEnabled) return requestAnimationFrame(loop);
+      const w = fxCanvas.width, h = fxCanvas.height;
+      ctx.clearRect(0, 0, w, h);
+      const cx = w / 2, cy = h / 2;
+
+      // Ghostly arcs
+      for (let i = 0; i < 6; i++) {
+        const r = Math.min(cx, cy) * (0.35 + 0.15 * Math.sin(t * 0.001 + i));
+        ctx.beginPath();
+        ctx.strokeStyle = `rgba(168,85,247, ${0.06 + 0.02*Math.sin(t*0.002 + i)})`;
+        ctx.lineWidth = 1.2;
+        const start = (t*0.0004 + i) % (Math.PI*2);
+        ctx.arc(cx, cy, r, start, start + Math.PI * 0.6);
+        ctx.stroke();
+      }
+
+      // Motes
+      for (let i = 0; i < 50; i++) {
+        const x = (cx + Math.cos(t*0.0008 + i) * (cx * 0.8)) + Math.sin(i*12.9898) * 8;
+        const y = (cy + Math.sin(t*0.0006 + i*1.2) * (cy * 0.6)) + Math.cos(i*78.233) * 6;
+        const s = 0.7 + (Math.sin(t*0.004 + i) + 1) * 0.7;
+        ctx.fillStyle = `rgba(34,211,238, ${0.10 + 0.08*Math.sin(i*2.1)})`;
+        ctx.beginPath();
+        ctx.arc(x, y, s, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      t += 16.7;
+      requestAnimationFrame(loop);
+    }
+    loop();
+
+    // Whisper system
+    const whisperHost = document.getElementById('whispers');
+    const whispers = [
+      'time is the only currency',
+      'every second counts',
+      'your heartbeat is a metronome',
+      'tomorrow is never promised',
+      'the clock does not bargain',
+      'what will you do with now?',
+      'listen to the silence',
+      'dust remembers'
+    ];
+    function spawnWhisper(text) {
+      const w = document.createElement('div'); w.className = 'w';
+      w.textContent = text;
+      const x = Math.random() * 80 + 10; // viewport %
+      const y = Math.random() * 70 + 15;
+      w.style.left = x + 'vw'; w.style.top = y + 'vh';
+      w.style.fontSize = (Math.random()*0.6 + 0.9) + 'rem';
+      whisperHost.appendChild(w);
+      setTimeout(() => w.remove(), 6000);
+    }
+    function randomWhisper() { spawnWhisper(whispers[Math.floor(Math.random()*whispers.length)]); }
+
+    // Toggle ambience
+    const ambientBtn = document.getElementById('ambientToggle');
+    ambientBtn?.addEventListener('click', () => {
+      fxEnabled = !fxEnabled;
+      ambientBtn.classList.toggle('secondary');
+      ambientBtn.textContent = fxEnabled ? 'Ambience' : 'Ambience Off';
+      if (fxEnabled) loop();
+    });
+
+    // Ritual button to burst whispers
+    const ritualBtn = document.getElementById('ritualBtn');
+    ritualBtn?.addEventListener('click', () => {
+      for (let i = 0; i < 6; i++) setTimeout(randomWhisper, i * 400);
+      document.querySelector('.brand')?.classList.add('glitch');
+      setTimeout(() => document.querySelector('.brand')?.classList.remove('glitch'), 600);
+    });
+
+    // Periodic subtle whispers
+    setInterval(() => { if (fxEnabled && Math.random() < 0.5) randomWhisper(); }, 8000);
+
+    // Enhance existing flow: pulse next when answer given
+    function pulseNextBrief() {
+      const n = document.getElementById('nextBtn');
+      if (!n) return; n.classList.add('pulse'); setTimeout(() => n.classList.remove('pulse'), 1200);
+    }
+
+    // Hook into selection handlers by observing state changes via next button enable toggles
+    const originalToggleNext = toggleNext;
+    toggleNext = function(enabled) {
+      originalToggleNext(enabled);
+      if (enabled) pulseNextBrief();
+    }
+  </script>
+</body>
+</html>
